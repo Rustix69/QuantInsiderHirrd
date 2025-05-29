@@ -1,3 +1,4 @@
+
 import type { Config } from "tailwindcss";
 
 export default {
@@ -18,6 +19,9 @@ export default {
 			}
 		},
 		extend: {
+			fontFamily: {
+				'sans': ['Space Grotesk', 'system-ui', 'sans-serif'],
+			},
 			colors: {
 				border: 'hsl(var(--border))',
 				input: 'hsl(var(--input))',
@@ -61,7 +65,11 @@ export default {
 					'accent-foreground': 'hsl(var(--sidebar-accent-foreground))',
 					border: 'hsl(var(--sidebar-border))',
 					ring: 'hsl(var(--sidebar-ring))'
-				}
+				},
+				'hirrd-bg': '#1E1E1E',
+				'hirrd-secondary': '#2A2A2A',
+				'hirrd-accent': '#10A37F',
+				'hirrd-border': '#404040',
 			},
 			borderRadius: {
 				lg: 'var(--radius)',
