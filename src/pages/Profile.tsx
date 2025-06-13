@@ -1,4 +1,3 @@
-
 import { useState } from "react";
 import { Layout } from "@/components/Layout";
 import { useAuth } from "@/contexts/AuthContext";
@@ -9,7 +8,24 @@ import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 import { Badge } from "@/components/ui/badge";
-import { User, FileText, Upload, Save, Calendar, MapPin, Mail, Phone } from "lucide-react";
+import { User, FileText, Upload, Save, Calendar, MapPin, Mail, Phone, Briefcase, GraduationCap, Plus, Trash2 } from "lucide-react";
+
+// Define types for education and experience
+interface Education {
+  id: string;
+  institute: string;
+  course: string;
+  startDate: string;
+  endDate: string;
+}
+
+interface Experience {
+  id: string;
+  company: string;
+  role: string;
+  startDate: string;
+  endDate: string;
+}
 
 const Profile = () => {
   const { user, updateProfile } = useAuth();
@@ -19,10 +35,73 @@ const Profile = () => {
   const [phone, setPhone] = useState("+1 (555) 123-4567");
   const [location, setLocation] = useState("San Francisco, CA");
   const [isEditing, setIsEditing] = useState(false);
+  
+  // Education and Experience states
+  const [education, setEducation] = useState<Education[]>([
+    {
+      id: "1",
+      institute: "Stanford University",
+      course: "MS in Computer Science",
+      startDate: "2018-09",
+      endDate: "2020-06"
+    }
+  ]);
+  
+  const [experience, setExperience] = useState<Experience[]>([
+    {
+      id: "1",
+      company: "Tech Solutions Inc.",
+      role: "Senior Developer",
+      startDate: "2020-07",
+      endDate: "Present"
+    }
+  ]);
 
   const handleSave = () => {
     updateProfile({ name, email, bio });
     setIsEditing(false);
+  };
+
+  const addEducation = () => {
+    const newEducation: Education = {
+      id: Date.now().toString(),
+      institute: "",
+      course: "",
+      startDate: "",
+      endDate: ""
+    };
+    setEducation([...education, newEducation]);
+  };
+
+  const updateEducation = (id: string, field: keyof Education, value: string) => {
+    setEducation(education.map(edu => 
+      edu.id === id ? { ...edu, [field]: value } : edu
+    ));
+  };
+
+  const removeEducation = (id: string) => {
+    setEducation(education.filter(edu => edu.id !== id));
+  };
+
+  const addExperience = () => {
+    const newExperience: Experience = {
+      id: Date.now().toString(),
+      company: "",
+      role: "",
+      startDate: "",
+      endDate: ""
+    };
+    setExperience([...experience, newExperience]);
+  };
+
+  const updateExperience = (id: string, field: keyof Experience, value: string) => {
+    setExperience(experience.map(exp => 
+      exp.id === id ? { ...exp, [field]: value } : exp
+    ));
+  };
+
+  const removeExperience = (id: string) => {
+    setExperience(experience.filter(exp => exp.id !== id));
   };
 
   const skills = ["React", "TypeScript", "Node.js", "Python", "AWS", "Docker"];
@@ -143,6 +222,198 @@ const Profile = () => {
                       Cancel
                     </Button>
                   </div>
+                )}
+              </CardContent>
+            </Card>
+
+            {/* Education */}
+            <Card className="bg-hirrd-secondary border-hirrd-border">
+              <CardHeader>
+                <CardTitle className="text-white flex items-center gap-2">
+                  <GraduationCap className="w-5 h-5" />
+                  Education
+                </CardTitle>
+                <CardDescription className="text-gray-400">
+                  Your educational background
+                </CardDescription>
+              </CardHeader>
+              <CardContent className="space-y-4">
+                {education.map((edu, index) => (
+                  <div key={edu.id} className="p-4 bg-hirrd-bg rounded-lg border border-hirrd-border space-y-3">
+                    <div className="flex justify-between items-start">
+                      <div className="space-y-1">
+                        <h4 className="text-white font-medium">{edu.course || (isEditing ? "New Education" : "")}</h4>
+                        <p className="text-gray-400 text-sm">{edu.institute}</p>
+                        <p className="text-gray-500 text-xs">
+                          {edu.startDate} - {edu.endDate}
+                        </p>
+                      </div>
+                      {isEditing && (
+                        <Button 
+                          variant="ghost" 
+                          size="sm" 
+                          className="text-red-400 hover:text-red-300 hover:bg-red-900/20 p-2 h-auto"
+                          onClick={() => removeEducation(edu.id)}
+                        >
+                          <Trash2 className="w-4 h-4" />
+                        </Button>
+                      )}
+                    </div>
+                    
+                    {isEditing && (
+                      <div className="grid gap-3 pt-2">
+                        <div className="grid md:grid-cols-2 gap-3">
+                          <div className="space-y-2">
+                            <Label htmlFor={`institute-${edu.id}`} className="text-gray-300 text-xs">Institute</Label>
+                            <Input
+                              id={`institute-${edu.id}`}
+                              value={edu.institute}
+                              onChange={(e) => updateEducation(edu.id, "institute", e.target.value)}
+                              className="bg-hirrd-bg border-hirrd-border text-white h-8 text-sm"
+                            />
+                          </div>
+                          <div className="space-y-2">
+                            <Label htmlFor={`course-${edu.id}`} className="text-gray-300 text-xs">Course/Degree</Label>
+                            <Input
+                              id={`course-${edu.id}`}
+                              value={edu.course}
+                              onChange={(e) => updateEducation(edu.id, "course", e.target.value)}
+                              className="bg-hirrd-bg border-hirrd-border text-white h-8 text-sm"
+                            />
+                          </div>
+                        </div>
+                        <div className="grid md:grid-cols-2 gap-3">
+                          <div className="space-y-2">
+                            <Label htmlFor={`startDate-${edu.id}`} className="text-gray-300 text-xs">Start Date</Label>
+                            <Input
+                              id={`startDate-${edu.id}`}
+                              value={edu.startDate}
+                              onChange={(e) => updateEducation(edu.id, "startDate", e.target.value)}
+                              placeholder="YYYY-MM"
+                              className="bg-hirrd-bg border-hirrd-border text-white h-8 text-sm"
+                            />
+                          </div>
+                          <div className="space-y-2">
+                            <Label htmlFor={`endDate-${edu.id}`} className="text-gray-300 text-xs">End Date</Label>
+                            <Input
+                              id={`endDate-${edu.id}`}
+                              value={edu.endDate}
+                              onChange={(e) => updateEducation(edu.id, "endDate", e.target.value)}
+                              placeholder="YYYY-MM or Present"
+                              className="bg-hirrd-bg border-hirrd-border text-white h-8 text-sm"
+                            />
+                          </div>
+                        </div>
+                      </div>
+                    )}
+                  </div>
+                ))}
+                
+                {isEditing && (
+                  <Button 
+                    variant="outline" 
+                    className="w-full border-dashed border-hirrd-border text-gray-300 hover:bg-hirrd-bg"
+                    onClick={addEducation}
+                  >
+                    <Plus className="w-4 h-4 mr-2" />
+                    Add Education
+                  </Button>
+                )}
+              </CardContent>
+            </Card>
+
+            {/* Experience */}
+            <Card className="bg-hirrd-secondary border-hirrd-border">
+              <CardHeader>
+                <CardTitle className="text-white flex items-center gap-2">
+                  <Briefcase className="w-5 h-5" />
+                  Experience
+                </CardTitle>
+                <CardDescription className="text-gray-400">
+                  Your work history and professional experience
+                </CardDescription>
+              </CardHeader>
+              <CardContent className="space-y-4">
+                {experience.map((exp, index) => (
+                  <div key={exp.id} className="p-4 bg-hirrd-bg rounded-lg border border-hirrd-border space-y-3">
+                    <div className="flex justify-between items-start">
+                      <div className="space-y-1">
+                        <h4 className="text-white font-medium">{exp.role || (isEditing ? "New Position" : "")}</h4>
+                        <p className="text-gray-400 text-sm">{exp.company}</p>
+                        <p className="text-gray-500 text-xs">
+                          {exp.startDate} - {exp.endDate}
+                        </p>
+                      </div>
+                      {isEditing && (
+                        <Button 
+                          variant="ghost" 
+                          size="sm" 
+                          className="text-red-400 hover:text-red-300 hover:bg-red-900/20 p-2 h-auto"
+                          onClick={() => removeExperience(exp.id)}
+                        >
+                          <Trash2 className="w-4 h-4" />
+                        </Button>
+                      )}
+                    </div>
+                    
+                    {isEditing && (
+                      <div className="grid gap-3 pt-2">
+                        <div className="grid md:grid-cols-2 gap-3">
+                          <div className="space-y-2">
+                            <Label htmlFor={`company-${exp.id}`} className="text-gray-300 text-xs">Company</Label>
+                            <Input
+                              id={`company-${exp.id}`}
+                              value={exp.company}
+                              onChange={(e) => updateExperience(exp.id, "company", e.target.value)}
+                              className="bg-hirrd-bg border-hirrd-border text-white h-8 text-sm"
+                            />
+                          </div>
+                          <div className="space-y-2">
+                            <Label htmlFor={`role-${exp.id}`} className="text-gray-300 text-xs">Role/Position</Label>
+                            <Input
+                              id={`role-${exp.id}`}
+                              value={exp.role}
+                              onChange={(e) => updateExperience(exp.id, "role", e.target.value)}
+                              className="bg-hirrd-bg border-hirrd-border text-white h-8 text-sm"
+                            />
+                          </div>
+                        </div>
+                        <div className="grid md:grid-cols-2 gap-3">
+                          <div className="space-y-2">
+                            <Label htmlFor={`startDate-${exp.id}`} className="text-gray-300 text-xs">Start Date</Label>
+                            <Input
+                              id={`startDate-${exp.id}`}
+                              value={exp.startDate}
+                              onChange={(e) => updateExperience(exp.id, "startDate", e.target.value)}
+                              placeholder="YYYY-MM"
+                              className="bg-hirrd-bg border-hirrd-border text-white h-8 text-sm"
+                            />
+                          </div>
+                          <div className="space-y-2">
+                            <Label htmlFor={`endDate-${exp.id}`} className="text-gray-300 text-xs">End Date</Label>
+                            <Input
+                              id={`endDate-${exp.id}`}
+                              value={exp.endDate}
+                              onChange={(e) => updateExperience(exp.id, "endDate", e.target.value)}
+                              placeholder="YYYY-MM or Present"
+                              className="bg-hirrd-bg border-hirrd-border text-white h-8 text-sm"
+                            />
+                          </div>
+                        </div>
+                      </div>
+                    )}
+                  </div>
+                ))}
+                
+                {isEditing && (
+                  <Button 
+                    variant="outline" 
+                    className="w-full border-dashed border-hirrd-border text-gray-300 hover:bg-hirrd-bg"
+                    onClick={addExperience}
+                  >
+                    <Plus className="w-4 h-4 mr-2" />
+                    Add Experience
+                  </Button>
                 )}
               </CardContent>
             </Card>
