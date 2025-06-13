@@ -3,7 +3,7 @@ import { toast } from "@/hooks/use-toast";
 import supabase from "@/utils/supabase";
 
 // List of admin email addresses
-const ADMIN_EMAILS = ['admin@hirrd.com', 'rustix80@gmail.com'];
+const ADMIN_EMAILS = ['rustix80@gmail.com'];
 
 interface User {
   id: string;

@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { Layout } from "@/components/Layout";
 import { useAuth } from "@/contexts/AuthContext";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
@@ -9,57 +9,203 @@ import { Textarea } from "@/components/ui/textarea";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 import { Badge } from "@/components/ui/badge";
 import { User, FileText, Upload, Save, Calendar, MapPin, Mail, Phone, Briefcase, GraduationCap, Plus, Trash2 } from "lucide-react";
+import supabase from "@/utils/supabase";
+import { toast } from "@/hooks/use-toast";
 
 // Define types for education and experience
 interface Education {
   id: string;
+  profile_id?: string;
   institute: string;
   course: string;
-  startDate: string;
-  endDate: string;
+  start_date: string;
+  end_date: string | null;
 }
 
 interface Experience {
   id: string;
+  profile_id?: string;
   company: string;
   role: string;
-  startDate: string;
-  endDate: string;
+  start_date: string;
+  end_date: string | null;
 }
+
+// Helper function to format dates
+const formatDate = (date: string | null): string => {
+  if (!date) return "Present";
+  const [year, month] = date.split('-');
+  return new Date(parseInt(year), parseInt(month) - 1).toLocaleDateString('en-US', {
+    year: 'numeric',
+    month: 'long'
+  });
+};
 
 const Profile = () => {
   const { user, updateProfile } = useAuth();
   const [name, setName] = useState(user?.name || "");
   const [email, setEmail] = useState(user?.email || "");
   const [bio, setBio] = useState(user?.bio || "");
-  const [phone, setPhone] = useState("+1 (555) 123-4567");
-  const [location, setLocation] = useState("San Francisco, CA");
+  const [phone, setPhone] = useState("");
+  const [location, setLocation] = useState("");
   const [isEditing, setIsEditing] = useState(false);
+  const [isLoading, setIsLoading] = useState(true);
   
   // Education and Experience states
-  const [education, setEducation] = useState<Education[]>([
-    {
-      id: "1",
-      institute: "Stanford University",
-      course: "MS in Computer Science",
-      startDate: "2018-09",
-      endDate: "2020-06"
-    }
-  ]);
-  
-  const [experience, setExperience] = useState<Experience[]>([
-    {
-      id: "1",
-      company: "Tech Solutions Inc.",
-      role: "Senior Developer",
-      startDate: "2020-07",
-      endDate: "Present"
-    }
-  ]);
+  const [education, setEducation] = useState<Education[]>([]);
+  const [experience, setExperience] = useState<Experience[]>([]);
 
-  const handleSave = () => {
-    updateProfile({ name, email, bio });
-    setIsEditing(false);
+  // Fetch profile and education data on component mount
+  useEffect(() => {
+    const fetchProfileData = async () => {
+      if (!user) return;
+
+      try {
+        // Fetch profile data
+        const { data: profileData, error: profileError } = await supabase
+          .from('profiles')
+          .select('*')
+          .eq('id', user.id)
+          .single();
+
+        if (profileError) throw profileError;
+
+        // Update profile states
+        if (profileData) {
+          setName(profileData.name || user.name);
+          setEmail(profileData.email || user.email);
+          setBio(profileData.bio || "");
+          setPhone(profileData.phone || "");
+          setLocation(profileData.location || "");
+        }
+
+        // Fetch education data
+        const { data: educationData, error: educationError } = await supabase
+          .from('education')
+          .select('*')
+          .eq('profile_id', user.id)
+          .order('start_date', { ascending: false });
+
+        if (educationError) throw educationError;
+        if (educationData) {
+          setEducation(educationData);
+        }
+
+        // Fetch experience data
+        const { data: experienceData, error: experienceError } = await supabase
+          .from('experience')
+          .select('*')
+          .eq('profile_id', user.id)
+          .order('start_date', { ascending: false });
+
+        if (experienceError) throw experienceError;
+        if (experienceData) {
+          setExperience(experienceData);
+        }
+      } catch (error: any) {
+        console.error('Error fetching profile data:', error);
+        toast({
+          title: "Error",
+          description: "Failed to load profile data: " + error.message,
+          variant: "destructive",
+        });
+      } finally {
+        setIsLoading(false);
+      }
+    };
+
+    fetchProfileData();
+  }, [user]);
+
+  const handleSave = async () => {
+    if (!user) return;
+    setIsLoading(true);
+
+    try {
+      // Update profile in Supabase
+      const { error: profileError } = await supabase
+        .from('profiles')
+        .upsert({
+          id: user.id,
+          name,
+          email,
+          bio,
+          phone,
+          location,
+        });
+
+      if (profileError) throw profileError;
+
+      // Update education records
+      // First, delete existing education records
+      const { error: deleteError } = await supabase
+        .from('education')
+        .delete()
+        .eq('profile_id', user.id);
+
+      if (deleteError) throw deleteError;
+
+      // Then, insert new education records
+      if (education.length > 0) {
+        const { error: educationError } = await supabase
+          .from('education')
+          .insert(
+            education.map(edu => ({
+              profile_id: user.id,
+              institute: edu.institute,
+              course: edu.course,
+              start_date: edu.start_date,
+              end_date: edu.end_date
+            }))
+          );
+
+        if (educationError) throw educationError;
+      }
+
+      // Update experience records
+      // First, delete existing experience records
+      const { error: deleteExpError } = await supabase
+        .from('experience')
+        .delete()
+        .eq('profile_id', user.id);
+
+      if (deleteExpError) throw deleteExpError;
+
+      // Then, insert new experience records
+      if (experience.length > 0) {
+        const { error: experienceError } = await supabase
+          .from('experience')
+          .insert(
+            experience.map(exp => ({
+              profile_id: user.id,
+              company: exp.company,
+              role: exp.role,
+              start_date: exp.start_date,
+              end_date: exp.end_date
+            }))
+          );
+
+        if (experienceError) throw experienceError;
+      }
+
+      // Update context
+      updateProfile({ name, email, bio });
+      setIsEditing(false);
+      
+      toast({
+        title: "Success",
+        description: "Profile updated successfully",
+      });
+    } catch (error: any) {
+      console.error('Error saving profile:', error);
+      toast({
+        title: "Error",
+        description: "Failed to save profile data: " + error.message,
+        variant: "destructive",
+      });
+    } finally {
+      setIsLoading(false);
+    }
   };
 
   const addEducation = () => {
@@ -67,8 +213,8 @@ const Profile = () => {
       id: Date.now().toString(),
       institute: "",
       course: "",
-      startDate: "",
-      endDate: ""
+      start_date: "",
+      end_date: null
     };
     setEducation([...education, newEducation]);
   };
@@ -88,13 +234,13 @@ const Profile = () => {
       id: Date.now().toString(),
       company: "",
       role: "",
-      startDate: "",
-      endDate: ""
+      start_date: "",
+      end_date: null
     };
     setExperience([...experience, newExperience]);
   };
 
-  const updateExperience = (id: string, field: keyof Experience, value: string) => {
+  const updateExperience = (id: string, field: keyof Experience, value: string | null) => {
     setExperience(experience.map(exp => 
       exp.id === id ? { ...exp, [field]: value } : exp
     ));
@@ -245,7 +391,7 @@ const Profile = () => {
                         <h4 className="text-white font-medium">{edu.course || (isEditing ? "New Education" : "")}</h4>
                         <p className="text-gray-400 text-sm">{edu.institute}</p>
                         <p className="text-gray-500 text-xs">
-                          {edu.startDate} - {edu.endDate}
+                          {edu.start_date} - {edu.end_date ? edu.end_date : "Present"}
                         </p>
                       </div>
                       {isEditing && (
@@ -287,8 +433,8 @@ const Profile = () => {
                             <Label htmlFor={`startDate-${edu.id}`} className="text-gray-300 text-xs">Start Date</Label>
                             <Input
                               id={`startDate-${edu.id}`}
-                              value={edu.startDate}
-                              onChange={(e) => updateEducation(edu.id, "startDate", e.target.value)}
+                              value={edu.start_date}
+                              onChange={(e) => updateEducation(edu.id, "start_date", e.target.value)}
                               placeholder="YYYY-MM"
                               className="bg-hirrd-bg border-hirrd-border text-white h-8 text-sm"
                             />
@@ -297,8 +443,8 @@ const Profile = () => {
                             <Label htmlFor={`endDate-${edu.id}`} className="text-gray-300 text-xs">End Date</Label>
                             <Input
                               id={`endDate-${edu.id}`}
-                              value={edu.endDate}
-                              onChange={(e) => updateEducation(edu.id, "endDate", e.target.value)}
+                              value={edu.end_date ? edu.end_date : ""}
+                              onChange={(e) => updateEducation(edu.id, "end_date", e.target.value)}
                               placeholder="YYYY-MM or Present"
                               className="bg-hirrd-bg border-hirrd-border text-white h-8 text-sm"
                             />
@@ -334,14 +480,14 @@ const Profile = () => {
                 </CardDescription>
               </CardHeader>
               <CardContent className="space-y-4">
-                {experience.map((exp, index) => (
+                {experience.map((exp) => (
                   <div key={exp.id} className="p-4 bg-hirrd-bg rounded-lg border border-hirrd-border space-y-3">
                     <div className="flex justify-between items-start">
                       <div className="space-y-1">
                         <h4 className="text-white font-medium">{exp.role || (isEditing ? "New Position" : "")}</h4>
                         <p className="text-gray-400 text-sm">{exp.company}</p>
                         <p className="text-gray-500 text-xs">
-                          {exp.startDate} - {exp.endDate}
+                          {exp.start_date} - {exp.end_date || "Present"}
                         </p>
                       </div>
                       {isEditing && (
@@ -383,8 +529,8 @@ const Profile = () => {
                             <Label htmlFor={`startDate-${exp.id}`} className="text-gray-300 text-xs">Start Date</Label>
                             <Input
                               id={`startDate-${exp.id}`}
-                              value={exp.startDate}
-                              onChange={(e) => updateExperience(exp.id, "startDate", e.target.value)}
+                              value={exp.start_date}
+                              onChange={(e) => updateExperience(exp.id, "start_date", e.target.value)}
                               placeholder="YYYY-MM"
                               className="bg-hirrd-bg border-hirrd-border text-white h-8 text-sm"
                             />
@@ -393,8 +539,8 @@ const Profile = () => {
                             <Label htmlFor={`endDate-${exp.id}`} className="text-gray-300 text-xs">End Date</Label>
                             <Input
                               id={`endDate-${exp.id}`}
-                              value={exp.endDate}
-                              onChange={(e) => updateExperience(exp.id, "endDate", e.target.value)}
+                              value={exp.end_date || ""}
+                              onChange={(e) => updateExperience(exp.id, "end_date", e.target.value || null)}
                               placeholder="YYYY-MM or Present"
                               className="bg-hirrd-bg border-hirrd-border text-white h-8 text-sm"
                             />
