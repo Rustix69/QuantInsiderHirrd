@@ -1,6 +1,9 @@
-
 import React, { createContext, useContext, useState, useEffect } from 'react';
 import { toast } from "@/hooks/use-toast";
+import supabase from "@/utils/supabase";
+
+// List of admin email addresses
+const ADMIN_EMAILS = ['admin@hirrd.com', 'rustix80@gmail.com'];
 
 interface User {
   id: string;
@@ -31,41 +34,103 @@ export const useAuth = () => {
 export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
   const [user, setUser] = useState<User | null>(null);
 
+  // Check if an email is an admin email
+  const isAdminEmail = (email: string): boolean => {
+    return ADMIN_EMAILS.includes(email.toLowerCase());
+  };
+
   useEffect(() => {
-    // Check for existing session
-    const savedUser = localStorage.getItem('hirrd_user');
-    if (savedUser) {
-      setUser(JSON.parse(savedUser));
-    }
+    // Check for existing session in Supabase
+    const checkSession = async () => {
+      const { data: { session } } = await supabase.auth.getSession();
+      
+      if (session) {
+        const userData = session.user;
+        // Map Supabase user to our User interface
+        setUser({
+          id: userData.id,
+          name: userData.user_metadata?.name || userData.email?.split('@')[0] || 'User',
+          email: userData.email || '',
+          bio: userData.user_metadata?.bio || '',
+          isAdmin: isAdminEmail(userData.email || '')
+        });
+      } else {
+        // Check for existing session in localStorage (for backward compatibility)
+        const savedUser = localStorage.getItem('hirrd_user');
+        if (savedUser) {
+          setUser(JSON.parse(savedUser));
+        }
+      }
+    };
+    
+    checkSession();
+    
+    // Listen for auth state changes
+    const { data: { subscription } } = supabase.auth.onAuthStateChange(
+      (event, session) => {
+        if (event === 'SIGNED_IN' && session) {
+          const userData = session.user;
+          const newUser = {
+            id: userData.id,
+            name: userData.user_metadata?.name || userData.email?.split('@')[0] || 'User',
+            email: userData.email || '',
+            bio: userData.user_metadata?.bio || '',
+            isAdmin: isAdminEmail(userData.email || '')
+          };
+          
+          setUser(newUser);
+          localStorage.setItem('hirrd_user', JSON.stringify(newUser));
+          
+          toast({
+            title: "Welcome back!",
+            description: "You have been successfully logged in.",
+          });
+        } else if (event === 'SIGNED_OUT') {
+          setUser(null);
+          localStorage.removeItem('hirrd_user');
+        }
+      }
+    );
+    
+    return () => {
+      subscription.unsubscribe();
+    };
   }, []);
 
   const login = async (email: string, password: string): Promise<boolean> => {
-    // Mock login - in real app, this would call your backend API
     try {
-      await new Promise(resolve => setTimeout(resolve, 1000)); // Simulate API call
-      
-      // Mock user data
-      const mockUser: User = {
-        id: '1',
-        name: email === 'admin@hirrd.com' ? 'Admin User' : 'John Doe',
+      const { data, error } = await supabase.auth.signInWithPassword({
         email,
-        bio: 'Software Developer with 5 years of experience',
-        isAdmin: email === 'admin@hirrd.com'
-      };
-      
-      setUser(mockUser);
-      localStorage.setItem('hirrd_user', JSON.stringify(mockUser));
-      
-      toast({
-        title: "Welcome back!",
-        description: "You have been successfully logged in.",
+        password
       });
       
-      return true;
-    } catch (error) {
+      if (error) throw error;
+      
+      if (data.user) {
+        const newUser = {
+          id: data.user.id,
+          name: data.user.user_metadata?.name || email.split('@')[0],
+          email: email,
+          bio: data.user.user_metadata?.bio || 'Software Developer with 5 years of experience',
+          isAdmin: isAdminEmail(email)
+        };
+        
+        setUser(newUser);
+        localStorage.setItem('hirrd_user', JSON.stringify(newUser));
+        
+        toast({
+          title: "Welcome back!",
+          description: "You have been successfully logged in.",
+        });
+        
+        return true;
+      }
+      
+      return false;
+    } catch (error: any) {
       toast({
         title: "Login failed",
-        description: "Please check your credentials and try again.",
+        description: error.message || "Please check your credentials and try again.",
         variant: "destructive",
       });
       return false;
@@ -73,31 +138,45 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   };
 
   const register = async (name: string, email: string, password: string): Promise<boolean> => {
-    // Mock registration - in real app, this would call your backend API
     try {
-      await new Promise(resolve => setTimeout(resolve, 1000)); // Simulate API call
-      
-      const newUser: User = {
-        id: Math.random().toString(36).substr(2, 9),
-        name,
+      const { data, error } = await supabase.auth.signUp({
         email,
-        bio: '',
-        isAdmin: false
-      };
-      
-      setUser(newUser);
-      localStorage.setItem('hirrd_user', JSON.stringify(newUser));
-      
-      toast({
-        title: "Account created!",
-        description: "Welcome to Hirrd. Your account has been created successfully.",
+        password,
+        options: {
+          data: {
+            name,
+            bio: ''
+          }
+        }
       });
       
-      return true;
-    } catch (error) {
+      if (error) throw error;
+      
+      if (data.user) {
+        const newUser = {
+          id: data.user.id,
+          name,
+          email,
+          bio: '',
+          isAdmin: isAdminEmail(email)
+        };
+        
+        setUser(newUser);
+        localStorage.setItem('hirrd_user', JSON.stringify(newUser));
+        
+        toast({
+          title: "Account created!",
+          description: "Welcome to Hirrd. Your account has been created successfully.",
+        });
+        
+        return true;
+      }
+      
+      return false;
+    } catch (error: any) {
       toast({
         title: "Registration failed",
-        description: "Please try again later.",
+        description: error.message || "Please try again later.",
         variant: "destructive",
       });
       return false;
@@ -105,22 +184,41 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   };
 
   const logout = () => {
-    setUser(null);
-    localStorage.removeItem('hirrd_user');
-    toast({
-      title: "Logged out",
-      description: "You have been successfully logged out.",
+    supabase.auth.signOut().then(() => {
+      setUser(null);
+      localStorage.removeItem('hirrd_user');
+      toast({
+        title: "Logged out",
+        description: "You have been successfully logged out.",
+      });
     });
   };
 
   const updateProfile = (data: Partial<User>) => {
     if (user) {
       const updatedUser = { ...user, ...data };
-      setUser(updatedUser);
-      localStorage.setItem('hirrd_user', JSON.stringify(updatedUser));
-      toast({
-        title: "Profile updated",
-        description: "Your profile has been updated successfully.",
+      
+      // Update user metadata in Supabase
+      supabase.auth.updateUser({
+        data: {
+          name: updatedUser.name,
+          bio: updatedUser.bio
+        }
+      }).then(({ error }) => {
+        if (!error) {
+          setUser(updatedUser);
+          localStorage.setItem('hirrd_user', JSON.stringify(updatedUser));
+          toast({
+            title: "Profile updated",
+            description: "Your profile has been updated successfully.",
+          });
+        } else {
+          toast({
+            title: "Update failed",
+            description: error.message,
+            variant: "destructive",
+          });
+        }
       });
     }
   };

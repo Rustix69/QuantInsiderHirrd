@@ -1,11 +1,10 @@
-
 import { Layout } from "@/components/Layout";
 import { useAuth } from "@/contexts/AuthContext";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { FileText, Upload, User, Calendar, TrendingUp, CheckCircle } from "lucide-react";
-import { Link } from "react-router-dom";
+import { Link, Navigate } from "react-router-dom";
 
 const Dashboard = () => {
   const { user } = useAuth();
@@ -48,6 +47,11 @@ const Dashboard = () => {
   ];
 
   if (!user) return null;
+  
+  // Redirect admin users to the admin dashboard
+  if (user.isAdmin) {
+    return <Navigate to="/admin/dashboard" />;
+  }
 
   return (
     <Layout>

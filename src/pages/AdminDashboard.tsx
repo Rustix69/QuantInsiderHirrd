@@ -1,4 +1,3 @@
-
 import { Layout } from "@/components/Layout";
 import { useAuth } from "@/contexts/AuthContext";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
@@ -7,8 +6,9 @@ import { Badge } from "@/components/ui/badge";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 import { Input } from "@/components/ui/input";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
-import { Users, FileText, Download, Search, Filter, Eye, Calendar, TrendingUp } from "lucide-react";
+import { Users, FileText, Download, Search, Filter, Eye, Calendar, TrendingUp, Shield } from "lucide-react";
 import { useState } from "react";
+import { Navigate } from "react-router-dom";
 
 const AdminDashboard = () => {
   const { user } = useAuth();
@@ -94,15 +94,11 @@ const AdminDashboard = () => {
     candidate.email.toLowerCase().includes(searchTerm.toLowerCase())
   );
 
-  if (!user?.isAdmin) {
-    return (
-      <Layout>
-        <div className="text-center py-12">
-          <h1 className="text-2xl font-bold text-white mb-4">Access Denied</h1>
-          <p className="text-gray-400">You don't have permission to access the admin dashboard.</p>
-        </div>
-      </Layout>
-    );
+  if (!user) return null;
+
+  // Redirect non-admin users to the regular dashboard
+  if (!user.isAdmin) {
+    return <Navigate to="/dashboard" />;
   }
 
   return (
@@ -112,9 +108,14 @@ const AdminDashboard = () => {
         <div className="flex flex-col lg:flex-row lg:items-center lg:justify-between">
           <div>
             <h1 className="text-3xl font-bold text-white mb-2">Admin Dashboard 👨‍💼</h1>
-            <p className="text-gray-400">
-              Manage candidates and oversee the hiring process
-            </p>
+            <div className="flex items-center gap-2">
+              <p className="text-gray-400">
+                Manage candidates and oversee the hiring process
+              </p>
+              <Badge variant="outline" className="border-red-500 text-red-400">
+                Admin
+              </Badge>
+            </div>
           </div>
           <div className="mt-4 lg:mt-0 flex gap-3">
             <Button variant="outline" className="border-hirrd-border text-gray-300">
@@ -249,7 +250,7 @@ const AdminDashboard = () => {
             
             {filteredCandidates.length === 0 && (
               <div className="text-center py-8">
-                <p className="text-gray-400">No candidates found matching your search.</p>
+                <p className="text-gray-400">No candidates found matching your search criteria.</p>
               </div>
             )}
           </CardContent>

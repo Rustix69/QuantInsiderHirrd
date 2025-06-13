@@ -7,22 +7,40 @@ import { Layout } from "@/components/Layout";
 import { useAuth } from "@/contexts/AuthContext";
 import { Link, useNavigate } from "react-router-dom";
 import { Loader2 } from "lucide-react";
+import supabase from "@/utils/supabase";
 
 const Login = () => {
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [loading, setLoading] = useState(false);
+  const [error, setError] = useState<string | null>(null);
   const { login } = useAuth();
   const navigate = useNavigate();
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setLoading(true);
-    const success = await login(email, password);
-    setLoading(false);
+    setError(null);
     
-    if (success) {
-      navigate("/dashboard");
+    try {
+      // Using Supabase for email/password login
+      const { data, error } = await supabase.auth.signInWithPassword({
+        email,
+        password
+      });
+      
+      if (error) throw error;
+      
+      // Call the existing login function to update context
+      const success = await login(email, password);
+      
+      if (success) {
+        navigate("/dashboard");
+      }
+    } catch (err: any) {
+      setError(err.message || "Failed to sign in");
+    } finally {
+      setLoading(false);
     }
   };
 
@@ -47,6 +65,12 @@ const Login = () => {
             
             <form onSubmit={handleSubmit}>
               <CardContent className="space-y-4">
+                {error && (
+                  <div className="p-3 bg-red-500/20 border border-red-500/50 rounded-md text-sm text-red-200">
+                    {error}
+                  </div>
+                )}
+                
                 <div className="space-y-2">
                   <Label htmlFor="email" className="text-gray-300">Email</Label>
                   <Input
